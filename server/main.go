@@ -33,7 +33,8 @@ func main() {
 
 	e.Static("/uploads", "./uploads")
 
-	var PORT = os.Getenv("DB_PORT")
+	var PORT = os.Getenv("PORT")
+
 	fmt.Println("server running localhost:" + PORT) // change this
 	e.Logger.Fatal(e.Start(":" + PORT))             // change this
 }
