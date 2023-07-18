@@ -1,15 +1,19 @@
 package handlers
 
 import (
+	"context"
 	productdto "dumbmerch/dto/product"
 	dto "dumbmerch/dto/result"
 	"dumbmerch/models"
 	"dumbmerch/repositories"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
+	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -32,7 +36,8 @@ func (h *handlerProduct) FindProducts(c echo.Context) error {
 	}
 
 	for i, p := range products {
-		products[i].Image = path_file + p.Image
+		imagePath := os.Getenv("PATH_FILE") + p.Image
+		products[i].Image = imagePath
 	}
 
 	return c.JSON(http.StatusOK, dto.SuccessResult{Code: http.StatusOK, Data: products})
@@ -47,12 +52,16 @@ func (h *handlerProduct) GetProduct(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResult{Code: http.StatusBadRequest, Message: err.Error()})
 	}
 
-	product.Image = path_file + product.Image
+	product.Image = os.Getenv("PATH_FILE") + product.Image
 
 	return c.JSON(http.StatusOK, dto.SuccessResult{Code: http.StatusOK, Data: convertResponseProduct(product)})
 }
 
 func (h *handlerProduct) CreateProduct(c echo.Context) error {
+	var ctx = context.Background()
+	var CLOUD_NAME = os.Getenv("CLOUD_NAME")
+	var API_KEY = os.Getenv("API_KEY")
+	var API_SECRET = os.Getenv("API_SECRET")
 	var err error
 	dataFile := c.Get("dataFile").(string)
 
@@ -74,11 +83,21 @@ func (h *handlerProduct) CreateProduct(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, dto.ErrorResult{Code: http.StatusBadRequest, Message: "Error: category_id form value is missing."})
 	}
 
+	// Add your Cloudinary credentials ...
+	cld, _ := cloudinary.NewFromParams(CLOUD_NAME, API_KEY, API_SECRET)
+
+	// Upload file to Cloudinary ...
+	resp, err := cld.Upload.Upload(ctx, dataFile, uploader.UploadParams{Folder: "batch47"})
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	request := productdto.CreateProductRequest{
 		Name:       c.FormValue("name"),
 		Desc:       c.FormValue("desc"),
 		Price:      price,
-		Image:      dataFile,
+		Image:      resp.SecureURL,
 		Qty:        qty,
 		CategoryID: categoriesId,
 	}
